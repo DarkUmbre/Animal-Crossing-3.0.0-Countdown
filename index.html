@@ -140,7 +140,37 @@
     }
     button:hover { background: rgba(255,255,255,0.95); }
 
-    /* Smaller screens */
+    
+
+    .notesBox {
+      margin-top: 18px;
+      padding: 14px 14px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(0,0,0,0.10);
+      background: rgba(255,255,255,0.65);
+      text-align: left;
+    }
+
+    .notesTitle {
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .notesMeta {
+      font-size: 12px;
+      color: rgba(0,0,0,0.60);
+      margin-bottom: 10px;
+      line-height: 1.25;
+    }
+
+    .notesBody {
+      white-space: pre-wrap;
+      font-size: 14px;
+      margin: 0;
+      line-height: 1.35;
+    }
+
+/* Smaller screens */
     @media (max-width: 520px) {
       h1 { font-size: 22px; }
       .line { font-size: 16px; }
@@ -154,40 +184,64 @@
   <div class="wrap">
     <div class="card">
       <h1>Animal Crossing: New Horizons — Nintendo Switch 2 Edition (v3.0.0)</h1>
-
-      <div class="line" id="target">Target (ET): …</div>
-      <div class="line" id="now">Now (ET): …</div>
-      <div class="line remaining" id="remaining">Remaining: …</div>
+<div class="line" id="tz">Your time zone: …</div>
+      <div class="line" id="targetLocal">Target (Your time): …</div>
+      <div class="line" id="nowLocal">Now (Your time): …</div>
+<div class="line remaining" id="remaining">Remaining: …</div>
 
       <div class="pill" id="sourcePill">Syncing time…</div>
 
       <button id="retryBtn" type="button" style="display:none">Retry time sync</button>
 
-      <div class="small">
-        Notes:
-        <br/>• This is an <b>Animal Crossing–inspired</b> background (pastel sky + grass + leaf motif).
-        <br/>• If you want an official wallpaper instead, you can download one from Nintendo’s My Nintendo Rewards and set it as a local background image.
-        <br/>• You can keep this file local (<code>file:///…</code>) — no installs.
+      
+
+      <!-- Remote notes (optional) -->
+      <div class="notesBox" id="remoteNotesBox" style="display:none">
+        <div class="notesTitle" id="remoteNotesTitle">Remote notes</div>
+        <div class="notesMeta" id="remoteNotesMeta"></div>
+        <pre class="notesBody" id="remoteNotesBody"></pre>
       </div>
-    </div>
+</div>
   </div>
 
 <script>
   // ======= SETTINGS =======
   // Target unlock moment (Eastern Time). Jan 15, 2026 12:00 AM ET (EST = -05:00 in January).
+  // (We keep the target as an absolute timestamp; we just display it in the viewer's local time.)
   const TARGET_MS = Date.parse("2026-01-15T00:00:00-05:00");
+
+  // Optional: remote notes URL (JSON or plain text). Leave "" to disable.
+  const REMOTE_NOTES_URL = "";
+  const REMOTE_NOTES_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
   // ========================
 
-  const elTarget = document.getElementById("target");
-  const elNow = document.getElementById("now");
+  // Elements (all optional-safe)
   const elRemaining = document.getElementById("remaining");
   const elSource = document.getElementById("sourcePill");
   const retryBtn = document.getElementById("retryBtn");
 
-  function formatET(dateObj) {
-    // 12-hour AM/PM in America/New_York
-    return dateObj.toLocaleString("en-US", {
-      timeZone: "America/New_York",
+  const elTZ = document.getElementById("tz");
+  const elTargetLocal = document.getElementById("targetLocal");
+  const elNowLocal = document.getElementById("nowLocal");
+
+  const elRemoteNotesBox = document.getElementById("remoteNotesBox");
+  const elRemoteNotesTitle = document.getElementById("remoteNotesTitle");
+  const elRemoteNotesMeta = document.getElementById("remoteNotesMeta");
+  const elRemoteNotesBody = document.getElementById("remoteNotesBody");
+
+  // --- Time zone detection (IANA name, e.g. "America/New_York") ---
+  function getUserTimeZone() {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      return (typeof tz === "string" && tz.length) ? tz : null;
+    } catch {
+      return null;
+    }
+  }
+  const USER_TZ = getUserTimeZone();
+
+  function baseFormatOptions() {
+    return {
       month: "2-digit",
       day: "2-digit",
       year: "numeric",
@@ -195,7 +249,28 @@
       minute: "2-digit",
       second: "2-digit",
       hour12: true
-    }) + " ET";
+    };
+  }
+
+  function formatInTimeZone(dateObj, timeZone) {
+    try {
+      return dateObj.toLocaleString("en-US", {
+        ...baseFormatOptions(),
+        timeZone,
+        timeZoneName: "short"
+      });
+    } catch {
+      // Fallback if timeZone option isn't supported
+      return dateObj.toLocaleString("en-US", baseFormatOptions());
+    }
+  }
+
+  function formatLocal(dateObj) {
+    try {
+      return dateObj.toLocaleString("en-US", { ...baseFormatOptions(), timeZoneName: "short" });
+    } catch {
+      return dateObj.toLocaleString("en-US", baseFormatOptions());
+    }
   }
 
   function fmtRemaining(ms) {
@@ -213,6 +288,14 @@
     return days > 0 ? `${days}d ${hh}:${mm}:${ss}` : `${hh}:${mm}:${ss}`;
   }
 
+  function setSourcePill(text, kind) {
+    if (!elSource) return;
+    elSource.textContent = text;
+    elSource.classList.remove("warn", "ok");
+    if (kind) elSource.classList.add(kind);
+  }
+
+  // --- Fetch helpers ---
   async function fetchWithTimeout(url, {timeoutMs = 4500, responseType = "json"} = {}) {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs);
@@ -227,12 +310,16 @@
   }
 
   function parseCloudflareTraceTs(text) {
-    const m = text.match(/(?:^|\n)ts=([0-9.]+)(?:\n|$)/);
+    const m = text.match(/(?:^|
+)ts=([0-9.]+)(?:
+|$)/);
     if (!m) throw new Error("No ts= in Cloudflare trace");
     return Math.floor(parseFloat(m[1]) * 1000);
   }
 
   async function getNetworkNowMs() {
+    // Note: when opened via file://, some endpoints may reject Origin: null (CORS).
+    // We try multiple sources and fall back safely.
     const worldTimeUrl = "https://worldtimeapi.org/api/timezone/Etc/UTC";
     const cloudflareTraceUrl = "https://cloudflare.com/cdn-cgi/trace";
     const allOriginsRaw = (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u);
@@ -279,7 +366,7 @@
           if (!iso) throw new Error("Missing utc_datetime");
           return Date.parse(iso);
         }
-      },
+      }
     ];
 
     let lastErr = null;
@@ -295,56 +382,181 @@
     throw lastErr || new Error("All time sources failed");
   }
 
+  // --- Remote notes ---
+  async function fetchRemoteNotesRaw(url) {
+    const allOriginsRaw = (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u);
+    const corsProxyIO = (u) => "https://corsproxy.io/?" + encodeURIComponent(u);
+
+    const tries = [
+      { name: "direct", url },
+      { name: "AllOrigins", url: allOriginsRaw(url) },
+      { name: "corsproxy.io", url: corsProxyIO(url) }
+    ];
+
+    let lastErr = null;
+    for (const t of tries) {
+      try {
+        const txt = await fetchWithTimeout(t.url, { responseType: "text", timeoutMs: 4500 });
+        return { text: txt, via: t.name };
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error("Remote notes fetch failed");
+  }
+
+  function parseRemoteNotes(text) {
+    const trimmed = String(text ?? "").trim();
+    if (!trimmed) return { title: "Remote notes", body: "" };
+
+    try {
+      const data = JSON.parse(trimmed);
+      if (Array.isArray(data)) return { title: "Remote notes", body: data.join("
+") };
+      if (typeof data === "string") return { title: "Remote notes", body: data };
+      if (data && typeof data === "object") {
+        const title = typeof data.title === "string" ? data.title : "Remote notes";
+        let body = "";
+        if (typeof data.body === "string") body = data.body;
+        else if (Array.isArray(data.lines)) body = data.lines.join("
+");
+        else body = JSON.stringify(data, null, 2);
+
+        const ts = data.updated_at ?? data.updatedAt ?? data.updated ?? data.timestamp;
+        let updatedAtMs = null;
+        if (typeof ts === "number" && Number.isFinite(ts)) updatedAtMs = ts > 1e12 ? ts : Math.floor(ts * 1000);
+        else if (typeof ts === "string") {
+          const parsed = Date.parse(ts);
+          if (Number.isFinite(parsed)) updatedAtMs = parsed;
+        }
+
+        return { title, body, updatedAtMs };
+      }
+    } catch {
+      // Not JSON
+    }
+    return { title: "Remote notes", body: text };
+  }
+
+  let remoteNotesTimer = null;
+
+  async function loadRemoteNotesOnce(nowMsForDisplay) {
+    if (!REMOTE_NOTES_URL) return;
+    if (!elRemoteNotesBox || !elRemoteNotesTitle || !elRemoteNotesMeta || !elRemoteNotesBody) return;
+
+    try {
+      const { text, via } = await fetchRemoteNotesRaw(REMOTE_NOTES_URL);
+      const notes = parseRemoteNotes(text);
+
+      elRemoteNotesTitle.textContent = notes.title || "Remote notes";
+      elRemoteNotesBody.textContent = notes.body || "";
+
+      const fetchedAt = new Date(nowMsForDisplay);
+      const localFetched = USER_TZ ? formatInTimeZone(fetchedAt, USER_TZ) : formatLocal(fetchedAt);
+
+      const parts = [];
+      parts.push(`Source: ${REMOTE_NOTES_URL}`);
+      parts.push(`Fetch: ${localFetched} (via ${via})`);
+
+      if (notes.updatedAtMs) {
+        const updatedAt = new Date(notes.updatedAtMs);
+        const localUpdated = USER_TZ ? formatInTimeZone(updatedAt, USER_TZ) : formatLocal(updatedAt);
+        parts.push(`Updated: ${localUpdated}`);
+      }
+
+      elRemoteNotesMeta.textContent = parts.join(" • ");
+      elRemoteNotesBox.style.display = "block";
+    } catch (e) {
+      elRemoteNotesTitle.textContent = "Remote notes";
+      elRemoteNotesBody.textContent = "";
+      elRemoteNotesMeta.textContent = `Could not load remote notes. Will retry. (${String(e && e.message ? e.message : e)})`;
+      elRemoteNotesBox.style.display = "block";
+    }
+  }
+
+  function startRemoteNotesLoop(getNowMs) {
+    if (!REMOTE_NOTES_URL) {
+      if (elRemoteNotesBox) elRemoteNotesBox.style.display = "none";
+      return;
+    }
+    if (remoteNotesTimer) clearInterval(remoteNotesTimer);
+    loadRemoteNotesOnce(getNowMs());
+    remoteNotesTimer = setInterval(() => loadRemoteNotesOnce(getNowMs()), REMOTE_NOTES_REFRESH_MS);
+  }
+
+  // --- Init display (local only) ---
   const targetDate = new Date(TARGET_MS);
-  elTarget.textContent = `Target (ET): ${formatET(targetDate)}`;
+
+  if (elTZ) {
+    elTZ.textContent = USER_TZ
+      ? `Your time zone: ${USER_TZ}`
+      : `Your time zone: (unknown — using your device’s local settings)`;
+  }
+
+  if (elTargetLocal) {
+    elTargetLocal.textContent = USER_TZ
+      ? `Target (Your time): ${formatInTimeZone(targetDate, USER_TZ)}`
+      : `Target (Your time): ${formatLocal(targetDate)}`;
+  }
 
   let offsetMs = 0;
   let ticking = null;
 
-  function setSourcePill(text, kind) {
-    elSource.textContent = text;
-    elSource.classList.remove("warn", "ok");
-    if (kind) elSource.classList.add(kind);
+  function getNowMs() {
+    return Date.now() + offsetMs;
   }
 
   function startTicking() {
     if (ticking) clearInterval(ticking);
     ticking = setInterval(() => {
-      const nowMs = Date.now() + offsetMs;
+      const nowMs = getNowMs();
       const remainingMs = TARGET_MS - nowMs;
+      const nowDate = new Date(nowMs);
 
-      elNow.textContent = `Now (ET): ${formatET(new Date(nowMs))}`;
-      elRemaining.textContent = `Remaining: ${fmtRemaining(remainingMs)}`;
+      if (elNowLocal) {
+        elNowLocal.textContent = USER_TZ
+          ? `Now (Your time): ${formatInTimeZone(nowDate, USER_TZ)}`
+          : `Now (Your time): ${formatLocal(nowDate)}`;
+      }
+
+      if (elRemaining) {
+        elRemaining.textContent = `Remaining: ${fmtRemaining(remainingMs)}`;
+      }
 
       if (remainingMs <= 0) {
         clearInterval(ticking);
         document.title = "✅ UNLOCK TIME!";
         setSourcePill("✅ TARGET TIME REACHED", "ok");
-        return;
+      } else {
+        document.title = `Unlock in ${fmtRemaining(remainingMs)}`;
       }
     }, 250);
   }
 
-  async function syncTimeAndRun() {
-    retryBtn.style.display = "none";
-    setSourcePill("Syncing time…", null);
+  // Start immediately using browser clock so the page never looks "stuck".
+  setSourcePill("Using browser clock (syncing…)", "warn");
+  startTicking();
+  startRemoteNotesLoop(() => getNowMs());
 
+  async function syncTime() {
+    if (retryBtn) retryBtn.style.display = "none";
     try {
       const { nowMs, source } = await getNetworkNowMs();
       offsetMs = nowMs - Date.now();
-      setSourcePill(`Time source: ${source}`, "ok");
-      startTicking();
+      setSourcePill(`Time source: ${source}${USER_TZ ? ` • TZ: ${USER_TZ}` : ""}`, "ok");
+
+      // Refresh notes timestamps based on the better clock
+      startRemoteNotesLoop(() => getNowMs());
     } catch (e) {
       offsetMs = 0;
-      setSourcePill("⚠ Using browser clock (time sync failed)", "warn");
-      retryBtn.style.display = "inline-block";
-      startTicking();
+      setSourcePill(`Using browser clock (time sync failed)${USER_TZ ? ` • TZ: ${USER_TZ}` : ""}`, "warn");
+      if (retryBtn) retryBtn.style.display = "inline-block";
       console.warn("Time sync failed:", e);
     }
   }
 
-  retryBtn.addEventListener("click", syncTimeAndRun);
-  syncTimeAndRun();
+  if (retryBtn) retryBtn.addEventListener("click", syncTime);
+  syncTime();
 </script>
 </body>
 </html>
