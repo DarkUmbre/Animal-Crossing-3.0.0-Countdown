@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ACNH Switch 2 v3.0.0 Countdown</title>
+  <title>ACNH Switch 2 v3.0.0 — Midnight Release Countdown</title>
   <style>
     :root { color-scheme: light; }
     body{
@@ -21,7 +21,7 @@
     }
     .wrap{ width:min(980px, 92vw); padding: 54px 0 90px; }
     .card{
-      width: min(720px, 100%);
+      width: min(780px, 100%);
       margin: 0 auto;
       background: rgba(255,255,255,.86);
       backdrop-filter: blur(10px);
@@ -34,7 +34,7 @@
     h1{
       margin: 0 0 6px;
       font-size: clamp(20px, 2.4vw, 30px);
-      font-weight: 800;
+      font-weight: 850;
       letter-spacing: .2px;
     }
     .sub{
@@ -47,7 +47,7 @@
       margin: 14px auto 10px;
       display: grid;
       gap: 10px;
-      width: min(560px, 100%);
+      width: min(600px, 100%);
       text-align:left;
     }
     .row{
@@ -61,11 +61,11 @@
       background: rgba(255,255,255,.62);
       border: 1px solid rgba(0,0,0,.05);
     }
-    .k{ opacity:.70; font-weight: 700; }
-    .v{ font-variant-numeric: tabular-nums; font-weight: 700; }
+    .k{ opacity:.70; font-weight: 750; }
+    .v{ font-variant-numeric: tabular-nums; font-weight: 750; text-align:right; }
     .remaining{
       margin: 16px 0 0;
-      font-size: clamp(22px, 3.2vw, 36px);
+      font-size: clamp(22px, 3.2vw, 38px);
       font-weight: 900;
       letter-spacing: .3px;
     }
@@ -81,9 +81,10 @@
       font-variant-numeric: tabular-nums;
     }
     .hint{
-      margin-top: 18px;
+      margin-top: 14px;
       font-size: 12px;
       opacity: .72;
+      line-height: 1.35;
     }
     code{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
   </style>
@@ -92,11 +93,12 @@
   <div class="wrap">
     <div class="card">
       <h1>Animal Crossing: New Horizons — Nintendo Switch 2 Edition (v3.0.0)</h1>
-      <div class="sub">Timezone detection + non-stalling time sync</div>
+      <div class="sub">Midnight (ET) release countdown — correct for any timezone</div>
 
       <div class="rows">
         <div class="row"><div class="k">Your time zone:</div><div class="v" id="tz">…</div></div>
-        <div class="row"><div class="k">Target (Your time):</div><div class="v" id="target">…</div></div>
+        <div class="row"><div class="k">Release unlock (Your time):</div><div class="v" id="targetLocal">…</div></div>
+        <div class="row"><div class="k">Release unlock (ET reference):</div><div class="v" id="targetET">…</div></div>
         <div class="row"><div class="k">Now (Your time):</div><div class="v" id="now">…</div></div>
       </div>
 
@@ -104,12 +106,19 @@
       <div class="pill" id="status">Syncing time…</div>
 
       <div class="hint">
-        Default target is <code>Jan 14, 2026 8:00 PM ET</code> (<code>Jan 15 01:00 UTC</code>). Change <code>TARGET_UTC_MS</code> below if you need a different time.
+        Target is set to <b>Jan 15, 2026 12:00:00 AM ET</b> (which is <b>Jan 14, 2026 9:00:00 PM PT</b> and <b>05:00 UTC</b>).<br/>
+        If you ever need a different target, change <code>TARGET_UTC_MS</code> in the script.
       </div>
     </div>
   </div>
 
 <script>
+/*
+  - Fixed absolute instant (NA unlock moment at midnight ET)
+  - Displays correctly in *any* visitor timezone
+  - Time sync tries same-origin HTTP Date header, but never stalls (falls back)
+*/
+
 function getUserTimeZone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 }
@@ -153,12 +162,18 @@ async function createNowProvider({ timeoutMs = 2500 } = {}) {
   }
 }
 
-// Default: Jan 14, 2026 8:00 PM ET  =>  Jan 15, 2026 01:00:00 UTC
-const TARGET_UTC_MS = Date.UTC(2026, 0, 15, 1, 0, 0);
+/*
+  TARGET:
+  Midnight ET on Jan 15, 2026.
+  In January, Eastern Time is standard time (UTC-5), so:
+    2026-01-15 00:00:00 ET == 2026-01-15 05:00:00 UTC
+*/
+const TARGET_UTC_MS = Date.UTC(2026, 0, 15, 5, 0, 0);
 
 const els = {
   tz: document.getElementById("tz"),
-  target: document.getElementById("target"),
+  targetLocal: document.getElementById("targetLocal"),
+  targetET: document.getElementById("targetET"),
   now: document.getElementById("now"),
   remaining: document.getElementById("remaining"),
   status: document.getElementById("status"),
@@ -190,6 +205,10 @@ async function startCountdown() {
   const timeZone = getUserTimeZone();
   els.tz.textContent = timeZone;
 
+  // Targets don't depend on syncing
+  els.targetLocal.textContent = fmtDate(TARGET_UTC_MS, timeZone);
+  els.targetET.textContent = fmtDate(TARGET_UTC_MS, "America/New_York");
+
   els.status.textContent = "Syncing time…";
   const { nowMs, source, skewMs } = await createNowProvider({ timeoutMs: 2500 });
 
@@ -199,8 +218,6 @@ async function startCountdown() {
   } else {
     els.status.textContent = "Using device time (sync unavailable)";
   }
-
-  els.target.textContent = fmtDate(TARGET_UTC_MS, timeZone);
 
   const tick = () => {
     const now = nowMs();
