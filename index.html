@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ACNH Countdown (v3.0.0) — Timezone + Non-stalling Sync</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ACNH Switch 2 v3.0.0 Countdown</title>
   <style>
     :root { color-scheme: light; }
     body{
@@ -14,34 +14,40 @@
       align-items:flex-start;
       justify-content:center;
       background:
-        radial-gradient(circle at 12% 15%, rgba(255,255,255,.75) 0 80px, transparent 85px),
-        radial-gradient(circle at 28% 22%, rgba(255,255,255,.60) 0 64px, transparent 70px),
-        radial-gradient(circle at 7% 30%, rgba(255,255,255,.45) 0 52px, transparent 60px),
-        linear-gradient(180deg, #bfe9ff 0%, #fff2b8 45%, #c9f7c7 100%);
+        linear-gradient(180deg, #bfe9ff 0%, #fff2b8 45%, #c9f7c7 100%),
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22140%22%20height%3D%22140%22%3E%0A%20%20%3Cg%20opacity%3D%220.22%22%20fill%3D%22%2380cfa2%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M34%2032c18%202%2030%2012%2035%2030-18%200-33-6-42-18-4-5-6-8-7-12%204%200%209%200%2014%200z%22/%3E%0A%20%20%20%20%3Cpath%20d%3D%22M106%2076c-18%202-30%2012-35%2030%2018%200%2033-6%2042-18%204-5%206-8%207-12-4%200-9%200-14%200z%22/%3E%0A%20%20%20%20%3Cpath%20d%3D%22M28%20104c20-1%2034%207%2042%2024-20%201-36-4-46-15-4-5-6-7-7-9%203%200%206%200%2011%200z%22/%3E%0A%20%20%20%20%3Cpath%20d%3D%22M118%20120c-20-1-34%207-42%2024%2020%201%2036-4%2046-15%204-5%206-7%207-9-3%200-6%200-11%200z%22/%3E%0A%20%20%3C/g%3E%0A%3C/svg%3E");
+      background-size: cover, 140px 140px;
+      background-repeat: no-repeat, repeat;
     }
-    .wrap{ width:min(860px, 92vw); padding: 56px 0; }
+    .wrap{ width:min(980px, 92vw); padding: 54px 0 90px; }
     .card{
+      width: min(720px, 100%);
       margin: 0 auto;
-      background: rgba(255,255,255,.82);
-      backdrop-filter: blur(8px);
+      background: rgba(255,255,255,.86);
+      backdrop-filter: blur(10px);
       border-radius: 18px;
-      box-shadow: 0 8px 30px rgba(0,0,0,.10);
+      box-shadow: 0 12px 40px rgba(0,0,0,.12);
       padding: 28px 26px;
       border: 1px solid rgba(0,0,0,.06);
       text-align:center;
     }
     h1{
-      margin: 0 0 8px;
-      font-size: clamp(20px, 2.4vw, 28px);
-      font-weight: 750;
+      margin: 0 0 6px;
+      font-size: clamp(20px, 2.4vw, 30px);
+      font-weight: 800;
       letter-spacing: .2px;
     }
-    .sub{ margin: 0 0 18px; opacity: .75; font-weight: 600; }
+    .sub{
+      margin: 0 0 18px;
+      opacity: .75;
+      font-weight: 650;
+      font-size: 14px;
+    }
     .rows{
       margin: 14px auto 10px;
       display: grid;
       gap: 10px;
-      width: min(520px, 100%);
+      width: min(560px, 100%);
       text-align:left;
     }
     .row{
@@ -52,15 +58,15 @@
       line-height: 1.35;
       padding: 8px 12px;
       border-radius: 12px;
-      background: rgba(255,255,255,.65);
+      background: rgba(255,255,255,.62);
       border: 1px solid rgba(0,0,0,.05);
     }
-    .k{ opacity:.70; font-weight: 650; }
-    .v{ font-variant-numeric: tabular-nums; font-weight: 650; }
+    .k{ opacity:.70; font-weight: 700; }
+    .v{ font-variant-numeric: tabular-nums; font-weight: 700; }
     .remaining{
       margin: 16px 0 0;
-      font-size: clamp(22px, 3.2vw, 34px);
-      font-weight: 850;
+      font-size: clamp(22px, 3.2vw, 36px);
+      font-weight: 900;
       letter-spacing: .3px;
     }
     .pill{
@@ -70,13 +76,14 @@
       padding: 8px 12px;
       border-radius: 999px;
       border: 1px solid rgba(0,0,0,.08);
-      background: rgba(255,255,255,.70);
+      background: rgba(255,255,255,.72);
       box-shadow: 0 2px 10px rgba(0,0,0,.06);
+      font-variant-numeric: tabular-nums;
     }
     .hint{
       margin-top: 18px;
       font-size: 12px;
-      opacity: .7;
+      opacity: .72;
     }
     code{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
   </style>
@@ -97,68 +104,57 @@
       <div class="pill" id="status">Syncing time…</div>
 
       <div class="hint">
-        Edit the target UTC time in the script by changing <code>TARGET_UTC_MS</code>.
+        Default target is <code>Jan 14, 2026 8:00 PM ET</code> (<code>Jan 15 01:00 UTC</code>). Change <code>TARGET_UTC_MS</code> below if you need a different time.
       </div>
     </div>
   </div>
 
 <script>
-/* ==========
-   Drop-in fix:
-   - Detect user timezone (IANA)
-   - Sync time using same-origin HTTP Date header (HEAD request)
-   - Never stall: if sync fails, falls back to local clock and continues
-   ========== */
-
-// 1) Detect the user's IANA timezone (no permissions needed)
 function getUserTimeZone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 }
 
-// 2) Create a "now()" provider that is synced (or safely falls back)
+// Returns: { nowMs: () => number, source: "server" | "device", skewMs: number }
 async function createNowProvider({ timeoutMs = 2500 } = {}) {
-  const localNowProvider = () => Date.now();
   const wrapWithPerf = (baseMs, basePerf) => () => baseMs + (performance.now() - basePerf);
+
+  const fallback = () => {
+    const t = performance.now();
+    return { nowMs: wrapWithPerf(Date.now(), t), source: "device", skewMs: 0 };
+  };
+
+  if (location.protocol === "file:") return fallback();
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const t0 = performance.now();
-
-    // Same-origin HEAD request; on GitHub Pages this should return a Date header.
-    const res = await fetch(location.href, {
-      method: "HEAD",
-      cache: "no-store",
-      signal: controller.signal,
-    });
-
+    const res = await fetch(location.href, { method: "HEAD", cache: "no-store", signal: controller.signal });
     const t1 = performance.now();
+
     const dateHeader = res.headers.get("date") || res.headers.get("Date");
-    if (!dateHeader) throw new Error("No Date header on response");
+    if (!dateHeader) throw new Error("No Date header");
 
     const serverMs = Date.parse(dateHeader);
-    if (!Number.isFinite(serverMs)) throw new Error("Unparseable Date header");
+    if (!Number.isFinite(serverMs)) throw new Error("Bad Date header");
 
-    // RTT compensation: assume server time corresponds roughly to midpoint of request.
     const rtt = t1 - t0;
     const estimatedNowAtT1 = serverMs + rtt / 2;
 
-    return wrapWithPerf(estimatedNowAtT1, t1);
-  } catch (err) {
-    // Fallback: do NOT stall the UI
-    const t = performance.now();
-    return wrapWithPerf(localNowProvider(), t);
+    const nowMs = wrapWithPerf(estimatedNowAtT1, t1);
+    const skewMs = estimatedNowAtT1 - Date.now();
+
+    return { nowMs, source: "server", skewMs };
+  } catch (e) {
+    return fallback();
   } finally {
     clearTimeout(timer);
   }
 }
 
-// 3) Countdown wiring
-
-// TODO: Set this to your actual target moment in UTC milliseconds.
-// Example: Date.UTC(2026, 0, 31, 23, 59, 59)  // Months are 0-based (0 = Jan)
-const TARGET_UTC_MS = Date.UTC(2026, 0, 31, 23, 59, 59);
+// Default: Jan 14, 2026 8:00 PM ET  =>  Jan 15, 2026 01:00:00 UTC
+const TARGET_UTC_MS = Date.UTC(2026, 0, 15, 1, 0, 0);
 
 const els = {
   tz: document.getElementById("tz"),
@@ -192,22 +188,28 @@ function fmtRemaining(deltaMs) {
 
 async function startCountdown() {
   const timeZone = getUserTimeZone();
-  if (els.tz) els.tz.textContent = timeZone;
+  els.tz.textContent = timeZone;
 
-  if (els.status) els.status.textContent = "Syncing time…";
-  const nowMs = await createNowProvider({ timeoutMs: 2500 });
-  if (els.status) els.status.textContent = "Time synced ✓";
+  els.status.textContent = "Syncing time…";
+  const { nowMs, source, skewMs } = await createNowProvider({ timeoutMs: 2500 });
 
-  if (els.target) els.target.textContent = fmtDate(TARGET_UTC_MS, timeZone);
+  if (source === "server") {
+    const skewSec = Math.round(skewMs / 1000);
+    els.status.textContent = `Synced from server ✓ (skew ${skewSec}s)`;
+  } else {
+    els.status.textContent = "Using device time (sync unavailable)";
+  }
+
+  els.target.textContent = fmtDate(TARGET_UTC_MS, timeZone);
 
   const tick = () => {
     const now = nowMs();
-    if (els.now) els.now.textContent = fmtDate(now, timeZone);
+    els.now.textContent = fmtDate(now, timeZone);
 
     const remaining = TARGET_UTC_MS - now;
-    if (els.remaining) els.remaining.textContent = fmtRemaining(remaining);
+    els.remaining.textContent = fmtRemaining(remaining);
 
-    if (remaining <= 0 && els.status) els.status.textContent = "Ready!";
+    if (remaining <= 0) els.status.textContent = "Ready!";
   };
 
   tick();
